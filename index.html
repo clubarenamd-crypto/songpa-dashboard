@@ -1,0 +1,169 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>송파점 영업 대시보드</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<style>
+  :root {
+    color-scheme: light;
+    --surface-1:#fcfcfb; --surface-2:#f2f1ee; --page:#f9f9f7;
+    --text-primary:#0b0b0b; --text-secondary:#52514e; --text-muted:#898781;
+    --grid:#e1e0d9; --border:rgba(11,11,11,0.10);
+    --good:#0ca30c; --bad:#d03b3b;
+    --series-1:#2a78d6; --series-2:#eb6834; --series-3:#1baf7a; --series-4:#eda100;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      color-scheme: dark;
+      --surface-1:#1a1a19; --surface-2:#232322; --page:#0d0d0d;
+      --text-primary:#ffffff; --text-secondary:#c3c2b7; --text-muted:#898781;
+      --grid:#2c2c2a; --border:rgba(255,255,255,0.10);
+      --good:#0ca30c; --bad:#e66767;
+      --series-1:#3987e5; --series-2:#d95926; --series-3:#199e70; --series-4:#c98500;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--page); color:var(--text-primary); font-family: system-ui, -apple-system, "Segoe UI", sans-serif; }
+  .wrap { max-width: 1100px; margin: 0 auto; padding: 28px 20px 60px; }
+  h1 { font-size: 22px; margin: 0 0 4px; }
+  .sub { color: var(--text-secondary); font-size: 13px; margin-bottom: 24px; }
+  .kpi-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; margin-bottom: 28px; }
+  .kpi { background: var(--surface-1); border: 1px solid var(--border); border-radius: 10px; padding: 16px; }
+  .kpi .label { font-size: 12px; color: var(--text-muted); margin-bottom: 6px; }
+  .kpi .value { font-size: 20px; font-weight: 700; }
+  .kpi .sub2 { font-size: 12px; color: var(--text-secondary); margin-top: 4px; }
+  section { background: var(--surface-1); border: 1px solid var(--border); border-radius: 10px; padding: 20px; margin-bottom: 20px; }
+  section h2 { font-size: 15px; margin: 0 0 14px; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th, td { text-align: right; padding: 8px 10px; border-bottom: 1px solid var(--grid); }
+  th:first-child, td:first-child { text-align: left; }
+  th { color: var(--text-muted); font-weight: 500; }
+  .bar-row { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+  .bar-label { width: 90px; font-size: 12px; color: var(--text-secondary); flex-shrink: 0; }
+  .bar-track { flex: 1; background: var(--surface-2); border-radius: 4px; overflow: hidden; height: 18px; position: relative; }
+  .bar-fill { height: 100%; background: var(--series-1); }
+  .bar-val { font-size: 12px; color: var(--text-secondary); width: 90px; text-align: right; flex-shrink: 0; }
+  .loading, .error { color: var(--text-muted); font-size: 13px; padding: 20px; text-align: center; }
+  .error { color: var(--bad); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>📊 송파점 영업 대시보드</h1>
+  <div class="sub" id="subtitle">불러오는 중...</div>
+
+  <div class="kpi-row" id="kpiRow"><div class="loading">불러오는 중...</div></div>
+
+  <section>
+    <h2>월별 매출 vs 목표</h2>
+    <div id="monthlyChart"><div class="loading">불러오는 중...</div></div>
+  </section>
+
+  <section>
+    <h2>판매자 순위 (최근월)</h2>
+    <div id="rankTable"><div class="loading">불러오는 중...</div></div>
+  </section>
+
+  <section>
+    <h2>카테고리별 판매 (최근 2개월 합산)</h2>
+    <div id="categoryChart"><div class="loading">불러오는 중...</div></div>
+  </section>
+
+  <section>
+    <h2>신상 vs 중고</h2>
+    <div id="newusedChart"><div class="loading">불러오는 중...</div></div>
+  </section>
+</div>
+
+<script>
+const SUPABASE_URL = "https://gqmhzvpcurrlkobsgcov.supabase.co";
+const SUPABASE_ANON_KEY = "sb_publishable_f1qmdqH6SgUYfVRanU1tbQ_hTpjHJ_G";
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+const won = n => "₩" + Math.round(n).toLocaleString("ko-KR");
+const pct = n => (n * 100).toFixed(1) + "%";
+
+async function main() {
+  try {
+    const [monthlyRes, rankRes, catRes, nuRes] = await Promise.all([
+      sb.from("sales_monthly").select("*").order("sort_order"),
+      sb.from("sales_rank").select("*").order("rank"),
+      sb.from("sales_category").select("*").order("amt", { ascending: false }),
+      sb.from("sales_newused").select("*"),
+    ]);
+    for (const r of [monthlyRes, rankRes, catRes, nuRes]) {
+      if (r.error) throw r.error;
+    }
+    renderAll(monthlyRes.data, rankRes.data, catRes.data, nuRes.data);
+  } catch (e) {
+    document.getElementById("kpiRow").innerHTML = `<div class="error">데이터를 불러오지 못했습니다: ${e.message || e}<br>F12 → Console 탭의 오류 메시지를 확인하세요.</div>`;
+    console.error(e);
+  }
+}
+
+function renderAll(monthly, rank, cat, nu) {
+  const totalRevenue = monthly.reduce((s, m) => s + Number(m.revenue), 0);
+  const totalMargin = monthly.reduce((s, m) => s + Number(m.margin), 0);
+  const totalVisits = monthly.reduce((s, m) => s + Number(m.visits), 0);
+  const totalTarget = monthly.reduce((s, m) => s + Number(m.target || 0), 0);
+  const marginRate = totalMargin / totalRevenue;
+  const achieveRate = totalTarget ? totalRevenue / totalTarget : 0;
+  const first = monthly[0], last = monthly[monthly.length - 1];
+
+  document.getElementById("subtitle").textContent =
+    `${first.month} ~ ${last.month} 누적 실적 · 최근 갱신 ${new Date().toLocaleDateString("ko-KR")}`;
+
+  document.getElementById("kpiRow").innerHTML = `
+    <div class="kpi"><div class="label">누적 매출</div><div class="value">${won(totalRevenue)}</div></div>
+    <div class="kpi"><div class="label">누적 마진</div><div class="value">${won(totalMargin)}</div></div>
+    <div class="kpi"><div class="label">마진률</div><div class="value">${pct(marginRate)}</div></div>
+    <div class="kpi"><div class="label">목표 달성률</div><div class="value">${pct(achieveRate)}</div></div>
+    <div class="kpi"><div class="label">누적 방문수</div><div class="value">${totalVisits.toLocaleString()}</div></div>
+  `;
+
+  const maxRevenue = Math.max(...monthly.map(m => Number(m.revenue)), ...monthly.map(m => Number(m.target || 0)));
+  document.getElementById("monthlyChart").innerHTML = monthly.map(m => `
+    <div class="bar-row">
+      <div class="bar-label">${m.month}</div>
+      <div class="bar-track">
+        <div class="bar-fill" style="width:${(Number(m.revenue) / maxRevenue * 100).toFixed(1)}%"></div>
+        ${m.target ? `<div style="position:absolute;left:${(Number(m.target) / maxRevenue * 100).toFixed(1)}%;top:0;bottom:0;width:2px;background:var(--text-primary);opacity:0.5"></div>` : ""}
+      </div>
+      <div class="bar-val">${won(m.revenue)}</div>
+    </div>
+  `).join("");
+
+  document.getElementById("rankTable").innerHTML = `
+    <table>
+      <thead><tr><th>순위</th><th>판매자</th><th>매출</th><th>마진</th><th>마진율</th></tr></thead>
+      <tbody>
+        ${rank.map(r => `<tr><td>${r.rank}</td><td style="text-align:left">${r.seller}</td><td>${won(r.revenue)}</td><td>${won(r.margin)}</td><td>${pct(r.margin_rate)}</td></tr>`).join("")}
+      </tbody>
+    </table>
+  `;
+
+  const maxCat = Math.max(...cat.map(c => Number(c.amt)));
+  document.getElementById("categoryChart").innerHTML = cat.map(c => `
+    <div class="bar-row">
+      <div class="bar-label">${c.category}</div>
+      <div class="bar-track"><div class="bar-fill" style="width:${(Number(c.amt) / maxCat * 100).toFixed(1)}%;background:var(--series-3)"></div></div>
+      <div class="bar-val">${won(c.amt)}</div>
+    </div>
+  `).join("");
+
+  const nuTotal = nu.reduce((s, x) => s + Number(x.amt), 0);
+  document.getElementById("newusedChart").innerHTML = nu.map((x, i) => `
+    <div class="bar-row">
+      <div class="bar-label">${x.type}</div>
+      <div class="bar-track"><div class="bar-fill" style="width:${(Number(x.amt) / nuTotal * 100).toFixed(1)}%;background:${i === 0 ? "var(--series-1)" : "var(--series-2)"}"></div></div>
+      <div class="bar-val">${pct(Number(x.amt) / nuTotal)}</div>
+    </div>
+  `).join("");
+}
+
+main();
+</script>
+</body>
+</html>
