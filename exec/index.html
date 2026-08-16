@@ -7,83 +7,117 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 <style>
   :root {
-    color-scheme: light;
-    --surface-1:#fcfcfb; --surface-2:#f2f1ee; --page:#f9f9f7;
-    --text-primary:#0b0b0b; --text-secondary:#52514e; --text-muted:#898781;
-    --grid:#e1e0d9; --border:rgba(11,11,11,0.10);
-    --good:#0ca30c; --bad:#d03b3b;
-    --series-1:#2a78d6; --series-2:#eb6834; --series-3:#1baf7a; --series-4:#eda100;
-  }
-  @media (prefers-color-scheme: dark) {
-    :root:not([data-theme="light"]) {
-      color-scheme: dark;
-      --surface-1:#1a1a19; --surface-2:#232322; --page:#0d0d0d;
-      --text-primary:#ffffff; --text-secondary:#c3c2b7; --text-muted:#898781;
-      --grid:#2c2c2a; --border:rgba(255,255,255,0.10);
-      --good:#0ca30c; --bad:#e66767;
-      --series-1:#3987e5; --series-2:#d95926; --series-3:#199e70; --series-4:#c98500;
-    }
+    --accent: #eab308;
+    --accent-soft: rgba(234,179,8,0.16);
+    --bg: #0b0b0f;
+    --sidebar-bg: #111116;
+    --card-bg: #16161d;
+    --card-border: rgba(255,255,255,0.07);
+    --text-primary: #f5f5f7;
+    --text-secondary: #9a9aa5;
+    --text-muted: #6b6b76;
+    --grid: rgba(255,255,255,0.08);
+    --good: #22c55e;
+    --bad: #ef4444;
   }
   * { box-sizing: border-box; }
-  body { margin:0; background:var(--page); color:var(--text-primary); font-family: system-ui, -apple-system, "Segoe UI", sans-serif; }
-  .wrap { max-width: 1180px; margin: 0 auto; padding: 28px 20px 60px; }
-  h1 { font-size: 22px; margin: 0 0 4px; }
-  .sub { color: var(--text-secondary); font-size: 13px; margin-bottom: 24px; }
-  .kpi-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; margin-bottom: 28px; }
-  .kpi { background: var(--surface-1); border: 1px solid var(--border); border-radius: 10px; padding: 16px; }
-  .kpi .label { font-size: 12px; color: var(--text-muted); margin-bottom: 6px; }
-  .kpi .value { font-size: 20px; font-weight: 700; }
-  .card-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 16px; }
-  section { background: var(--surface-1); border: 1px solid var(--border); border-radius: 10px; padding: 20px; }
-  section h2 { font-size: 15px; margin: 0 0 14px; display: flex; align-items: center; justify-content: space-between; }
-  section h2 a { font-size: 12px; font-weight: 400; color: var(--text-secondary); text-decoration: none; }
-  section h2 a:hover { text-decoration: underline; }
+  body { margin:0; background:var(--bg); color:var(--text-primary); font-family: system-ui, -apple-system, "Segoe UI", sans-serif; -webkit-font-smoothing:antialiased; }
+  .app { display: flex; min-height: 100vh; }
+  .sidebar { width: 220px; flex-shrink: 0; background: var(--sidebar-bg); border-right: 1px solid var(--card-border); padding: 20px 14px; display: flex; flex-direction: column; }
+  .brand { display: flex; align-items: center; gap: 10px; padding: 6px 8px 20px; }
+  .brand-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--accent); flex-shrink: 0; }
+  .brand-title { font-size: 14px; font-weight: 700; }
+  .brand-sub { font-size: 10px; color: var(--text-muted); letter-spacing: 0.05em; }
+  .nav-label { font-size: 10px; color: var(--text-muted); padding: 14px 8px 6px; letter-spacing: 0.05em; }
+  .nav-item { display: block; padding: 8px 8px; border-radius: 8px; color: var(--text-secondary); text-decoration: none; font-size: 13px; margin-bottom: 2px; }
+  .nav-item:hover { background: rgba(255,255,255,0.04); color: var(--text-primary); }
+  .nav-item.active { background: var(--accent-soft); color: var(--accent); font-weight: 600; }
+  .sidebar-footer { margin-top: auto; padding: 12px 8px; font-size: 12px; color: var(--text-muted); border-top: 1px solid var(--card-border); }
+  .content { flex: 1; padding: 28px 32px 60px; max-width: 1220px; }
+  .content-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 22px; }
+  .content-header h1 { font-size: 20px; margin: 0 0 4px; }
+  .content-header .sub { color: var(--text-secondary); font-size: 13px; }
+  .live-badge { font-size: 11px; color: var(--good); background: rgba(34,197,94,0.12); padding: 4px 10px; border-radius: 20px; }
+  .kpi-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 14px; margin-bottom: 22px; }
+  .kpi { background: var(--card-bg); border: 1px solid var(--card-border); border-radius: 14px; padding: 18px; }
+  .kpi-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+  .kpi-label { font-size: 12px; color: var(--text-secondary); }
+  .kpi-badge { font-size: 10px; color: var(--accent); background: var(--accent-soft); padding: 2px 8px; border-radius: 10px; }
+  .kpi-value { font-size: 24px; font-weight: 700; letter-spacing: -0.02em; }
+  .kpi-unit { font-size: 13px; font-weight: 500; color: var(--text-secondary); margin-left: 3px; }
+  .kpi-progress { height: 4px; background: rgba(255,255,255,0.08); border-radius: 4px; margin-top: 12px; overflow: hidden; }
+  .kpi-progress-fill { height: 100%; background: var(--accent); border-radius: 4px; }
+  .card-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(330px, 1fr)); gap: 16px; }
+  .panel { background: var(--card-bg); border: 1px solid var(--card-border); border-radius: 14px; padding: 20px; }
+  .panel h2 { font-size: 14px; font-weight: 700; margin: 0 0 14px; display: flex; align-items: center; justify-content: space-between; }
+  .panel h2 .dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; margin-right: 8px; }
+  .panel h2 a { font-size: 11px; font-weight: 400; color: var(--text-muted); text-decoration: none; }
+  .panel h2 a:hover { text-decoration: underline; color: var(--text-secondary); }
   .mini-row { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid var(--grid); font-size: 13px; }
   .mini-row:last-child { border-bottom: none; }
   .mini-row .l { color: var(--text-secondary); }
   .mini-row .v { font-weight: 600; }
-  .loading, .error { color: var(--text-muted); font-size: 13px; padding: 20px; text-align: center; }
+  .loading, .error { color: var(--text-muted); font-size: 13px; padding: 30px; text-align: center; }
   .error { color: var(--bad); }
-  .nav { font-size: 13px; margin-bottom: 16px; }
-  .nav a { color: var(--text-secondary); text-decoration: none; margin-right: 12px; }
-  .nav a:hover { text-decoration: underline; }
 </style>
 </head>
 <body>
-<div class="wrap">
-  <div class="nav"><a href="/">영업</a><a href="/pl">손익</a><a href="/marketing">마케팅</a><a href="/customer">고객</a><a href="/hr">인사</a><a href="/exec">경영</a></div>
-  <h1>🏢 송파점 경영 대시보드</h1>
-  <div class="sub" id="subtitle">전체 현황 요약 · 불러오는 중...</div>
+<div class="app">
+  <aside class="sidebar">
+    <div class="brand">
+      <span class="brand-dot"></span>
+      <div><div class="brand-title">경영관리</div><div class="brand-sub">EXECUTIVE</div></div>
+    </div>
+    <div class="nav-label">현황</div>
+    <a class="nav-item active" href="/exec">대시보드</a>
+    <div class="nav-label">부서별 대시보드</div>
+    <a class="nav-item" href="/">영업</a>
+    <a class="nav-item" href="/pl">손익</a>
+    <a class="nav-item" href="/marketing">마케팅</a>
+    <a class="nav-item" href="/customer">고객</a>
+    <a class="nav-item" href="/hr">인사</a>
+    <div class="sidebar-footer">송파점</div>
+  </aside>
 
-  <div class="kpi-row" id="kpiRow"><div class="loading">불러오는 중...</div></div>
+  <main class="content">
+    <div class="content-header">
+      <div>
+        <h1>경영 대시보드</h1>
+        <div class="sub" id="subtitle">전체 현황 요약 · 불러오는 중...</div>
+      </div>
+      <span class="live-badge">● LIVE</span>
+    </div>
 
-  <div class="card-grid">
-    <section>
-      <h2>영업 <a href="/">자세히 →</a></h2>
-      <div id="salesCard"><div class="loading">불러오는 중...</div></div>
-    </section>
-    <section>
-      <h2>손익 <a href="/pl">자세히 →</a></h2>
-      <div id="plCard"><div class="loading">불러오는 중...</div></div>
-    </section>
-    <section>
-      <h2>마케팅 <a href="/marketing">자세히 →</a></h2>
-      <div id="marketingCard"><div class="loading">불러오는 중...</div></div>
-    </section>
-    <section>
-      <h2>고객 <a href="/customer">자세히 →</a></h2>
-      <div id="customerCard"><div class="loading">불러오는 중...</div></div>
-    </section>
-    <section>
-      <h2>인사 <a href="/hr">자세히 →</a></h2>
-      <div id="hrCard"><div class="loading">불러오는 중...</div></div>
-    </section>
-  </div>
+    <div class="kpi-row" id="kpiRow"><div class="loading">불러오는 중...</div></div>
+
+    <div class="card-grid">
+      <section class="panel">
+        <h2><span><span class="dot" style="background:#3b82f6"></span>영업</span><a href="/">자세히 →</a></h2>
+        <div id="salesCard"><div class="loading">불러오는 중...</div></div>
+      </section>
+      <section class="panel">
+        <h2><span><span class="dot" style="background:#22c55e"></span>손익</span><a href="/pl">자세히 →</a></h2>
+        <div id="plCard"><div class="loading">불러오는 중...</div></div>
+      </section>
+      <section class="panel">
+        <h2><span><span class="dot" style="background:#f97316"></span>마케팅</span><a href="/marketing">자세히 →</a></h2>
+        <div id="marketingCard"><div class="loading">불러오는 중...</div></div>
+      </section>
+      <section class="panel">
+        <h2><span><span class="dot" style="background:#14b8a6"></span>고객</span><a href="/customer">자세히 →</a></h2>
+        <div id="customerCard"><div class="loading">불러오는 중...</div></div>
+      </section>
+      <section class="panel">
+        <h2><span><span class="dot" style="background:#a855f7"></span>인사</span><a href="/hr">자세히 →</a></h2>
+        <div id="hrCard"><div class="loading">불러오는 중...</div></div>
+      </section>
+    </div>
+  </main>
 </div>
 
 <script>
 const sb = supabase.createClient("https://gqmhzvpcurrlkobsgcov.supabase.co", "sb_publishable_f1qmdqH6SgUYfVRanU1tbQ_hTpjHJ_G");
-const won = n => "₩" + Math.round(n).toLocaleString("ko-KR");
+const won = n => Math.round(n).toLocaleString("ko-KR");
 const pct = n => (n * 100).toFixed(1) + "%";
 const row = (l, v) => `<div class="mini-row"><div class="l">${l}</div><div class="v">${v}</div></div>`;
 
@@ -118,38 +152,54 @@ function render(sales, pl, mkt, cust, hr) {
     `${sales[0].month} ~ ${sales[sales.length - 1].month} 누적 실적 · 최근 갱신 ${new Date().toLocaleDateString("ko-KR")}`;
 
   document.getElementById("kpiRow").innerHTML = `
-    <div class="kpi"><div class="label">누적 매출</div><div class="value">${won(totalRevenue)}</div></div>
-    <div class="kpi"><div class="label">누적 마진</div><div class="value">${won(totalMargin)}</div></div>
-    <div class="kpi"><div class="label">마진률</div><div class="value">${pct(marginRate)}</div></div>
-    <div class="kpi"><div class="label">목표 달성률</div><div class="value">${pct(achieveRate)}</div></div>
-    <div class="kpi"><div class="label">누적 방문수</div><div class="value">${totalVisits.toLocaleString()}</div></div>
+    <div class="kpi">
+      <div class="kpi-top"><span class="kpi-label">누적 매출</span><span class="kpi-badge">전사</span></div>
+      <div class="kpi-value">${won(totalRevenue)}<span class="kpi-unit">원</span></div>
+    </div>
+    <div class="kpi">
+      <div class="kpi-top"><span class="kpi-label">누적 마진</span><span class="kpi-badge">전사</span></div>
+      <div class="kpi-value">${won(totalMargin)}<span class="kpi-unit">원</span></div>
+    </div>
+    <div class="kpi">
+      <div class="kpi-top"><span class="kpi-label">마진률</span><span class="kpi-badge">전사</span></div>
+      <div class="kpi-value">${pct(marginRate)}</div>
+    </div>
+    <div class="kpi">
+      <div class="kpi-top"><span class="kpi-label">목표 달성률</span><span class="kpi-badge">누적</span></div>
+      <div class="kpi-value">${pct(achieveRate)}</div>
+      <div class="kpi-progress"><div class="kpi-progress-fill" style="width:${Math.min(100, achieveRate * 100).toFixed(1)}%"></div></div>
+    </div>
+    <div class="kpi">
+      <div class="kpi-top"><span class="kpi-label">누적 방문수</span><span class="kpi-badge">전사</span></div>
+      <div class="kpi-value">${totalVisits.toLocaleString()}<span class="kpi-unit">명</span></div>
+    </div>
   `;
 
   const lastMonth = sales[sales.length - 1];
   document.getElementById("salesCard").innerHTML =
-    row("최근월 매출", won(lastMonth.revenue)) +
+    row("최근월 매출", won(lastMonth.revenue) + "원") +
     row("최근월 마진률", pct(lastMonth.margin / lastMonth.revenue)) +
-    row("누적 방문수", totalVisits.toLocaleString());
+    row("누적 방문수", totalVisits.toLocaleString() + "명");
 
   const totalPurchase = pl.reduce((s, r) => s + Number(r.purchase_cost), 0);
   document.getElementById("plCard").innerHTML =
-    row("누적 매입", won(totalPurchase)) +
-    row("누적 마진", won(pl.reduce((s, r) => s + Number(r.margin), 0))) +
+    row("누적 매입", won(totalPurchase) + "원") +
+    row("누적 마진", won(pl.reduce((s, r) => s + Number(r.margin), 0)) + "원") +
     row("최근월 마진률", pct(pl[pl.length - 1].margin_rate));
 
   const mktRevenue = mkt.reduce((s, r) => s + Number(r.revenue), 0);
   const mktCost = mkt.reduce((s, r) => s + Number(r.cost), 0);
   const topChannel = [...mkt].sort((a, b) => Number(b.revenue) - Number(a.revenue))[0];
   document.getElementById("marketingCard").innerHTML =
-    row("채널 매출 합계", won(mktRevenue)) +
+    row("채널 매출 합계", won(mktRevenue) + "원") +
     row("ROAS", mktCost ? (mktRevenue / mktCost).toFixed(1) + "x" : "-") +
     row("최고 채널", topChannel.channel);
 
   const custRevenue = cust.reduce((s, r) => s + Number(r.revenue), 0);
   const vip = cust.find(r => r.segment.includes("VIP"));
   document.getElementById("customerCard").innerHTML =
-    row("총 고객수", totalCustomers.toLocaleString()) +
-    row("총 매출", won(custRevenue)) +
+    row("총 고객수", totalCustomers.toLocaleString() + "명") +
+    row("총 매출", won(custRevenue) + "원") +
     row("VIP 매출비중", vip ? pct(Number(vip.revenue) / custRevenue) : "-");
 
   const avgAttendance = hr.reduce((s, r) => s + Number(r.attendance_rate), 0) / totalStaff;
