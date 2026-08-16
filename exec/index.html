@@ -1,0 +1,166 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>송파점 경영 대시보드</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<style>
+  :root {
+    color-scheme: light;
+    --surface-1:#fcfcfb; --surface-2:#f2f1ee; --page:#f9f9f7;
+    --text-primary:#0b0b0b; --text-secondary:#52514e; --text-muted:#898781;
+    --grid:#e1e0d9; --border:rgba(11,11,11,0.10);
+    --good:#0ca30c; --bad:#d03b3b;
+    --series-1:#2a78d6; --series-2:#eb6834; --series-3:#1baf7a; --series-4:#eda100;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      color-scheme: dark;
+      --surface-1:#1a1a19; --surface-2:#232322; --page:#0d0d0d;
+      --text-primary:#ffffff; --text-secondary:#c3c2b7; --text-muted:#898781;
+      --grid:#2c2c2a; --border:rgba(255,255,255,0.10);
+      --good:#0ca30c; --bad:#e66767;
+      --series-1:#3987e5; --series-2:#d95926; --series-3:#199e70; --series-4:#c98500;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--page); color:var(--text-primary); font-family: system-ui, -apple-system, "Segoe UI", sans-serif; }
+  .wrap { max-width: 1180px; margin: 0 auto; padding: 28px 20px 60px; }
+  h1 { font-size: 22px; margin: 0 0 4px; }
+  .sub { color: var(--text-secondary); font-size: 13px; margin-bottom: 24px; }
+  .kpi-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; margin-bottom: 28px; }
+  .kpi { background: var(--surface-1); border: 1px solid var(--border); border-radius: 10px; padding: 16px; }
+  .kpi .label { font-size: 12px; color: var(--text-muted); margin-bottom: 6px; }
+  .kpi .value { font-size: 20px; font-weight: 700; }
+  .card-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 16px; }
+  section { background: var(--surface-1); border: 1px solid var(--border); border-radius: 10px; padding: 20px; }
+  section h2 { font-size: 15px; margin: 0 0 14px; display: flex; align-items: center; justify-content: space-between; }
+  section h2 a { font-size: 12px; font-weight: 400; color: var(--text-secondary); text-decoration: none; }
+  section h2 a:hover { text-decoration: underline; }
+  .mini-row { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid var(--grid); font-size: 13px; }
+  .mini-row:last-child { border-bottom: none; }
+  .mini-row .l { color: var(--text-secondary); }
+  .mini-row .v { font-weight: 600; }
+  .loading, .error { color: var(--text-muted); font-size: 13px; padding: 20px; text-align: center; }
+  .error { color: var(--bad); }
+  .nav { font-size: 13px; margin-bottom: 16px; }
+  .nav a { color: var(--text-secondary); text-decoration: none; margin-right: 12px; }
+  .nav a:hover { text-decoration: underline; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="nav"><a href="/">영업</a><a href="/pl">손익</a><a href="/marketing">마케팅</a><a href="/customer">고객</a><a href="/hr">인사</a><a href="/exec">경영</a></div>
+  <h1>🏢 송파점 경영 대시보드</h1>
+  <div class="sub" id="subtitle">전체 현황 요약 · 불러오는 중...</div>
+
+  <div class="kpi-row" id="kpiRow"><div class="loading">불러오는 중...</div></div>
+
+  <div class="card-grid">
+    <section>
+      <h2>영업 <a href="/">자세히 →</a></h2>
+      <div id="salesCard"><div class="loading">불러오는 중...</div></div>
+    </section>
+    <section>
+      <h2>손익 <a href="/pl">자세히 →</a></h2>
+      <div id="plCard"><div class="loading">불러오는 중...</div></div>
+    </section>
+    <section>
+      <h2>마케팅 <a href="/marketing">자세히 →</a></h2>
+      <div id="marketingCard"><div class="loading">불러오는 중...</div></div>
+    </section>
+    <section>
+      <h2>고객 <a href="/customer">자세히 →</a></h2>
+      <div id="customerCard"><div class="loading">불러오는 중...</div></div>
+    </section>
+    <section>
+      <h2>인사 <a href="/hr">자세히 →</a></h2>
+      <div id="hrCard"><div class="loading">불러오는 중...</div></div>
+    </section>
+  </div>
+</div>
+
+<script>
+const sb = supabase.createClient("https://gqmhzvpcurrlkobsgcov.supabase.co", "sb_publishable_f1qmdqH6SgUYfVRanU1tbQ_hTpjHJ_G");
+const won = n => "₩" + Math.round(n).toLocaleString("ko-KR");
+const pct = n => (n * 100).toFixed(1) + "%";
+const row = (l, v) => `<div class="mini-row"><div class="l">${l}</div><div class="v">${v}</div></div>`;
+
+async function main() {
+  try {
+    const [salesRes, plRes, mktRes, custRes, hrRes] = await Promise.all([
+      sb.from("sales_monthly").select("*").order("sort_order"),
+      sb.from("pl_monthly").select("*").order("sort_order"),
+      sb.from("marketing_channel").select("*"),
+      sb.from("customer_segment").select("*"),
+      sb.from("hr_staff").select("*"),
+    ]);
+    for (const r of [salesRes, plRes, mktRes, custRes, hrRes]) if (r.error) throw r.error;
+    render(salesRes.data, plRes.data, mktRes.data, custRes.data, hrRes.data);
+  } catch (e) {
+    document.getElementById("kpiRow").innerHTML = `<div class="error">데이터를 불러오지 못했습니다: ${e.message || e}</div>`;
+    console.error(e);
+  }
+}
+
+function render(sales, pl, mkt, cust, hr) {
+  const totalRevenue = sales.reduce((s, r) => s + Number(r.revenue), 0);
+  const totalMargin = sales.reduce((s, r) => s + Number(r.margin), 0);
+  const totalTarget = sales.reduce((s, r) => s + Number(r.target || 0), 0);
+  const marginRate = totalMargin / totalRevenue;
+  const achieveRate = totalTarget ? totalRevenue / totalTarget : 0;
+  const totalVisits = sales.reduce((s, r) => s + Number(r.visits), 0);
+  const totalCustomers = cust.reduce((s, r) => s + Number(r.customer_count), 0);
+  const totalStaff = hr.length;
+
+  document.getElementById("subtitle").textContent =
+    `${sales[0].month} ~ ${sales[sales.length - 1].month} 누적 실적 · 최근 갱신 ${new Date().toLocaleDateString("ko-KR")}`;
+
+  document.getElementById("kpiRow").innerHTML = `
+    <div class="kpi"><div class="label">누적 매출</div><div class="value">${won(totalRevenue)}</div></div>
+    <div class="kpi"><div class="label">누적 마진</div><div class="value">${won(totalMargin)}</div></div>
+    <div class="kpi"><div class="label">마진률</div><div class="value">${pct(marginRate)}</div></div>
+    <div class="kpi"><div class="label">목표 달성률</div><div class="value">${pct(achieveRate)}</div></div>
+    <div class="kpi"><div class="label">누적 방문수</div><div class="value">${totalVisits.toLocaleString()}</div></div>
+  `;
+
+  const lastMonth = sales[sales.length - 1];
+  document.getElementById("salesCard").innerHTML =
+    row("최근월 매출", won(lastMonth.revenue)) +
+    row("최근월 마진률", pct(lastMonth.margin / lastMonth.revenue)) +
+    row("누적 방문수", totalVisits.toLocaleString());
+
+  const totalPurchase = pl.reduce((s, r) => s + Number(r.purchase_cost), 0);
+  document.getElementById("plCard").innerHTML =
+    row("누적 매입", won(totalPurchase)) +
+    row("누적 마진", won(pl.reduce((s, r) => s + Number(r.margin), 0))) +
+    row("최근월 마진률", pct(pl[pl.length - 1].margin_rate));
+
+  const mktRevenue = mkt.reduce((s, r) => s + Number(r.revenue), 0);
+  const mktCost = mkt.reduce((s, r) => s + Number(r.cost), 0);
+  const topChannel = [...mkt].sort((a, b) => Number(b.revenue) - Number(a.revenue))[0];
+  document.getElementById("marketingCard").innerHTML =
+    row("채널 매출 합계", won(mktRevenue)) +
+    row("ROAS", mktCost ? (mktRevenue / mktCost).toFixed(1) + "x" : "-") +
+    row("최고 채널", topChannel.channel);
+
+  const custRevenue = cust.reduce((s, r) => s + Number(r.revenue), 0);
+  const vip = cust.find(r => r.segment.includes("VIP"));
+  document.getElementById("customerCard").innerHTML =
+    row("총 고객수", totalCustomers.toLocaleString()) +
+    row("총 매출", won(custRevenue)) +
+    row("VIP 매출비중", vip ? pct(Number(vip.revenue) / custRevenue) : "-");
+
+  const avgAttendance = hr.reduce((s, r) => s + Number(r.attendance_rate), 0) / totalStaff;
+  const topStaff = [...hr].sort((a, b) => Number(b.monthly_revenue) - Number(a.monthly_revenue))[0];
+  document.getElementById("hrCard").innerHTML =
+    row("재직 인원", totalStaff + "명") +
+    row("평균 출근율", pct(avgAttendance)) +
+    row("최고 실적자", topStaff.name);
+}
+
+main();
+</script>
+</body>
+</html>
